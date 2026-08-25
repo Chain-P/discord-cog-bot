@@ -15,6 +15,10 @@ YTDL_OPTS = {
     'quiet': True,
     'default_search': 'ytsearch1',
     'skip_download': True,
+    # YouTube's web client increasingly needs a PO token / JS challenge
+    # solver that isn't set up here; the android client sidesteps that
+    # and reliably returns a playable stream without one.
+    'extractor_args': {'youtube': {'player_client': ['android']}},
 }
 
 FFMPEG_BEFORE_OPTIONS = '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
