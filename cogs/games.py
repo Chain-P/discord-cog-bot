@@ -1,0 +1,102 @@
+import discord
+
+from discord.ext import commands
+from rps.model import RPS
+from rps.parser import RockPaperScissorParser
+from rps.controller import RPSGame
+
+from hangman.controller import HangmanGame
+from gaw.controller import GuessAWordGame
+
+hangman_games = {}
+
+word = "discord"
+user_guesses = list()
+
+class Games(commands.Cog):
+    def __init__(self, client):
+        self.client = client
+
+    @commands.command(usage= "rock | paper | scissor")
+    async def rps(self, ctx, user_choice: RockPaperScissorParser = RockPaperScissorParser(RPS.ROCK)):
+        """
+        Play a game of Rock Paper Scissors
+
+        Either choose rock, paper or scissor and beat the bot
+
+        You cannot challenge another user. It's vs the bot only!
+        """
+        
+        game_instance = RPSGame()
+        
+        user_choice = user_choice.choice
+        won, bot_choice = game_instance.run(user_choice)
+        
+        if won is None:
+            message = f"It's a draw! Double {user_choice}s"
+        elif won is True:
+            message = f"You win: {user_choice} vs. {bot_choice}"
+        elif won is False:
+            message = f"You lose: {user_choice} vs. {bot_choice}"
+
+
+        await ctx.send(message)
+
+    @commands.command()
+    async def hm(self, ctx, guess: str):
+        player_id = ctx.author.id
+        hangman_instance = HangmanGame()
+        game_over, won = hangman_instance.run(player_id, guess)
+
+
+        if game_over:
+            game_over_message = "You did not won"
+            if won:
+                game_over_message = "Congrats you won!!!"
+
+            game_over_message = game_over_message + f" The word was {hangman_instance.get_secret_word()}"
+            await hangman_instance.reset(player_id)
+            await ctx.send(game_over_message)
+            
+        else:
+            await ctx.send(f"Progress: {hangman_instance.get_progress_string()}")
+            await ctx.send(f"Guess so for: {hangman_instance.get_guess_string()}")
+
+    #TODO: Finish GAW game
+    @commands.group()
+    async def gaw(self, ctx):
+        #In Development
+        ctx.gaw_game = GuessAWordGame()
+
+    @gaw.command(name='start')
+    async def gaw_start(self, ctx, *members: discord.Member):
+        guild = ctx.guild
+        author = ctx.author
+        players = list()
+        for m in members:
+            players.append(m)
+        
+        
+        channel = await ctx.gaw_game.start_game(guild, author, players)
+        if channel is None:
+            await ctx.send("You already have a game. Please close it first")
+        else:
+            game = ctx.gaw_game.fetch_game()
+            await ctx.send("Have fun! Please go to the new game room")
+
+    @gaw.command(name='g')
+    async def gaw_guess(self, ctx,guess: str):
+        #In Development
+        channel_id = ctx.channel.id
+        
+        result, hint = ctx.gaw_game.guess(channel_id, guess)
+
+        if result is None:
+            await ctx.send("You are not allowed to play in this channel!")
+        elif result is True:
+            await ctx.send(f"{ctx.author.mention} you Won!")
+        elif result is False and hint != "":
+            await ctx.send(f"{ctx.author.mention} you are very close!")
+
+def setup(client):
+    client.add_cog(Games(client))
