@@ -24,6 +24,11 @@ YTDL_OPTS = {
 FFMPEG_BEFORE_OPTIONS = '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
 
 IDLE_TIMEOUT_SECONDS = 300
+EMPTY_CHANNEL_TIMEOUT_SECONDS = 15
+
+
+def has_human_members(channel) -> bool:
+    return any(not m.bot for m in channel.members)
 
 
 def _extract(query: str) -> dict:
@@ -54,6 +59,10 @@ class MusicPlayer:
         self.current: Song | None = None
         self.loop_current = False
         self._idle_task: asyncio.Task | None = None
+        self._empty_channel_task: asyncio.Task | None = None
+        # Text channel of whatever command last connected/played, so an
+        # unexpected reconnect failure has somewhere to report to.
+        self.last_text_channel: discord.abc.Messageable | None = None
 
     @property
     def is_connected(self) -> bool:
@@ -75,21 +84,63 @@ class MusicPlayer:
 
         async def _idle_disconnect():
             await asyncio.sleep(IDLE_TIMEOUT_SECONDS)
-            if self.voice_client is not None:
-                await self.voice_client.disconnect()
-                self.voice_client = None
+            # Clear voice_client *before* awaiting disconnect -- disconnect()
+            # stops playback, which fires the after-callback, which schedules
+            # play_next(). Clearing this first means play_next() sees no
+            # voice_client and no channel to reconnect to, instead of racing
+            # into a reconnect attempt for a disconnect we caused on purpose.
+            vc, self.voice_client = self.voice_client, None
+            if vc is not None:
+                await vc.disconnect()
 
         self._idle_task = bot_loop.create_task(_idle_disconnect())
+
+    def _cancel_empty_channel_timer(self):
+        if self._empty_channel_task is not None:
+            self._empty_channel_task.cancel()
+            self._empty_channel_task = None
+
+    def start_empty_channel_timer(self, bot_loop: asyncio.AbstractEventLoop):
+        self._cancel_empty_channel_timer()
+
+        async def _disconnect_if_still_empty():
+            await asyncio.sleep(EMPTY_CHANNEL_TIMEOUT_SECONDS)
+            vc, self.voice_client = self.voice_client, None
+            if vc is not None:
+                await vc.disconnect()
+
+        self._empty_channel_task = bot_loop.create_task(_disconnect_if_still_empty())
+
+    async def _attempt_reconnect(self, channel, bot_loop: asyncio.AbstractEventLoop):
+        try:
+            self.voice_client = await channel.connect()
+        except Exception as e:
+            if self.last_text_channel is not None:
+                await self.last_text_channel.send(
+                    f"Lost connection to voice and couldn't reconnect: {e}"
+                )
+            return
+        self.play_next(bot_loop)
 
     def play_next(self, bot_loop: asyncio.AbstractEventLoop):
         if not self.is_connected:
             # Discord can tear down the voice session on its own (session
-            # migration, timeout, etc.) without any of our commands running --
-            # if that happened, voice_client is a dead reference. Drop it so
-            # the next /play or /join reconnects cleanly instead of trying
-            # (and failing) to reuse it.
+            # migration, timeout, etc.) without any of our commands running.
+            # If voice_client is still set here, it's a dead reference --
+            # if one of our own intentional-disconnect paths had already run,
+            # they'd have cleared it to None before this point (see above),
+            # so reaching here with a channel means this was unintentional.
+            channel = self.voice_client.channel if self.voice_client is not None else None
             self.voice_client = None
             self._cancel_idle_timer()
+            self._cancel_empty_channel_timer()
+
+            if self.current is not None:
+                self.queue.appendleft(self.current)
+                self.current = None
+
+            if channel is not None and has_human_members(channel):
+                bot_loop.create_task(self._attempt_reconnect(channel, bot_loop))
             return
 
         if self.loop_current and self.current is not None:

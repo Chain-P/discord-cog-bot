@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from music.controller import MusicPlayer, extract_song
+from music.controller import MusicPlayer, extract_song, has_human_members
 
 
 class Music(commands.Cog):
@@ -23,6 +23,7 @@ class Music(commands.Cog):
 
         player = self.get_player(ctx.guild.id)
         channel = ctx.author.voice.channel
+        player.last_text_channel = ctx.channel
 
         if player.is_connected:
             await player.voice_client.move_to(channel)
@@ -40,8 +41,9 @@ class Music(commands.Cog):
             return
 
         player._cancel_idle_timer()
-        await player.voice_client.disconnect()
-        player.voice_client = None
+        player._cancel_empty_channel_timer()
+        vc, player.voice_client = player.voice_client, None
+        await vc.disconnect()
         player.queue.clear()
         player.current = None
         await ctx.send("Left the voice channel.")
@@ -55,6 +57,7 @@ class Music(commands.Cog):
 
         player = self.get_player(ctx.guild.id)
         channel = ctx.author.voice.channel
+        player.last_text_channel = ctx.channel
 
         if not player.is_connected:
             player.voice_client = await channel.connect()
@@ -112,11 +115,30 @@ class Music(commands.Cog):
         player.queue.clear()
         player.loop_current = False
         player._cancel_idle_timer()
-        if player.voice_client is not None:
-            await player.voice_client.disconnect()
-            player.voice_client = None
+        player._cancel_empty_channel_timer()
+        vc, player.voice_client = player.voice_client, None
+        if vc is not None:
+            await vc.disconnect()
         player.current = None
         await ctx.send("Stopped and cleared the queue.")
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member, before, after):
+        if member.bot:
+            return
+
+        player = self.players.get(member.guild.id)
+        if player is None or not player.is_connected:
+            return
+
+        bot_channel = player.voice_client.channel
+        if before.channel != bot_channel and after.channel != bot_channel:
+            return
+
+        if has_human_members(bot_channel):
+            player._cancel_empty_channel_timer()
+        else:
+            player.start_empty_channel_timer(self.client.loop)
 
     @commands.hybrid_command(name='queue', aliases=['q'], brief="Shows the current queue")
     @commands.guild_only()
