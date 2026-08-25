@@ -1,7 +1,7 @@
 import random
 
 from .model import Birthday as bday
-from utils import update_json, read_json
+from utils import update_json, read_json, dump_json
 from settings import DATA_DIR
 from datetime import datetime
 
@@ -41,15 +41,24 @@ class BirthdayTools:
 
     @staticmethod
     async def save(gid, pid, birthday: str):
-        dic = {f'{pid}':f'{birthday}'}
+        gid = str(gid)
+        pid = str(pid)
         data = read_json(DATA_DIR, 'servers_birthdays.json')
-        for key in data.keys():
-            if key == gid:
-                data[key].update(dic)
-            else:
-                data = {f'{gid}': dic}
+        if gid not in data:
+            data[gid] = {}
+        data[gid][pid] = birthday
+        dump_json(data, DATA_DIR, 'servers_birthdays.json')
 
-        update_json(data, DATA_DIR, 'servers_birthdays.json')
+    @staticmethod
+    def remove(gid, pid) -> bool:
+        gid = str(gid)
+        pid = str(pid)
+        data = read_json(DATA_DIR, 'servers_birthdays.json')
+        if gid in data and pid in data[gid]:
+            del data[gid][pid]
+            dump_json(data, DATA_DIR, 'servers_birthdays.json')
+            return True
+        return False
 
     @staticmethod
     async def check():

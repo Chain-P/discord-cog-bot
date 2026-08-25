@@ -43,8 +43,11 @@ class Birthday(commands.Cog):
     @birthday.command(name='remove')
     @mods_or_owner()
     async def remove(self, ctx, member: discord.Member):
-        #TODO: build remove command with pop() module
-        pass
+        removed = BirthdayTools.remove(ctx.guild.id, member.id)
+        if removed:
+            await ctx.send(f"Removed {member.mention}'s birthday.")
+        else:
+            await ctx.send(f"{member.mention} doesn't have a birthday saved.")
 
     @birthday.command()
     @mods_or_owner()
