@@ -17,14 +17,14 @@ class ZeroBot(Bot):
                 await self.load_extension(f'cogs.{filename[:-3]}')
 
         if DEV_GUILD_ID:
-            # Clear any globally-synced commands so they don't show up
-            # duplicated alongside the guild-scoped copies below.
-            self.tree.clear_commands(guild=None)
-            await self.tree.sync()
-
             guild = discord.Object(id=int(DEV_GUILD_ID))
             self.tree.copy_global_to(guild=guild)
             await self.tree.sync(guild=guild)
+
+            # Copy done — now clear the global set so it doesn't show up
+            # duplicated alongside the guild-scoped copies above.
+            self.tree.clear_commands(guild=None)
+            await self.tree.sync()
         else:
             await self.tree.sync()
 
