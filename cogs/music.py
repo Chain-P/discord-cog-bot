@@ -24,7 +24,7 @@ class Music(commands.Cog):
         player = self.get_player(ctx.guild.id)
         channel = ctx.author.voice.channel
 
-        if player.voice_client is not None:
+        if player.is_connected:
             await player.voice_client.move_to(channel)
         else:
             player.voice_client = await channel.connect()
@@ -56,7 +56,7 @@ class Music(commands.Cog):
         player = self.get_player(ctx.guild.id)
         channel = ctx.author.voice.channel
 
-        if player.voice_client is None:
+        if not player.is_connected:
             player.voice_client = await channel.connect()
         elif player.voice_client.channel != channel:
             await player.voice_client.move_to(channel)

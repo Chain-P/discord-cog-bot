@@ -56,8 +56,12 @@ class MusicPlayer:
         self._idle_task: asyncio.Task | None = None
 
     @property
+    def is_connected(self) -> bool:
+        return self.voice_client is not None and self.voice_client.is_connected()
+
+    @property
     def is_playing(self) -> bool:
-        return self.voice_client is not None and (
+        return self.is_connected and (
             self.voice_client.is_playing() or self.voice_client.is_paused()
         )
 
@@ -78,7 +82,14 @@ class MusicPlayer:
         self._idle_task = bot_loop.create_task(_idle_disconnect())
 
     def play_next(self, bot_loop: asyncio.AbstractEventLoop):
-        if self.voice_client is None:
+        if not self.is_connected:
+            # Discord can tear down the voice session on its own (session
+            # migration, timeout, etc.) without any of our commands running --
+            # if that happened, voice_client is a dead reference. Drop it so
+            # the next /play or /join reconnects cleanly instead of trying
+            # (and failing) to reuse it.
+            self.voice_client = None
+            self._cancel_idle_timer()
             return
 
         if self.loop_current and self.current is not None:
