@@ -16,11 +16,16 @@ class Birthday(commands.Cog):
 
     @birthday.command(name='add')
     async def add(self, ctx, bday):
+        try:
+            parsed = BirthdayTools.parse_birthday(bday)
+        except ValueError as e:
+            await ctx.send(str(e))
+            return
 
         pid = str(ctx.author.id)
         gid = str(ctx.guild.id)
-        await BirthdayTools.save(gid, pid, bday)
-        await ctx.send(f"Saved your birthday as {bday}.")
+        await BirthdayTools.save(gid, pid, parsed)
+        await ctx.send(f"Saved your birthday as {parsed[:5]}.")
 
     @birthday.command(name='check')
     @mods_or_owner()
