@@ -20,6 +20,7 @@ class Birthday(commands.Cog):
         pid = str(ctx.author.id)
         gid = str(ctx.guild.id)
         await BirthdayTools.save(gid, pid, bday)
+        await ctx.send(f"Saved your birthday as {bday}.")
 
     @birthday.command(name='check')
     @mods_or_owner()
@@ -30,6 +31,9 @@ class Birthday(commands.Cog):
                 channel = self.client.get_channel(BirthdayTools.get_birthday_channel(gild[uid]))
                 if channel is not None:
                     await channel.send(f"Happy Birthday <@{uid}>")
+            await ctx.send(f"Found {len(gild)} birthday(s) today.")
+        else:
+            await ctx.send("No birthdays today.")
 
     @birthday.command(name='remove')
     @mods_or_owner()
@@ -41,6 +45,7 @@ class Birthday(commands.Cog):
     @mods_or_owner()
     async def set_channel(self, ctx):
         BirthdayTools.set_birthday_channel(ctx.guild.id, ctx.channel.id)
+        await ctx.send(f"Birthday announcements will be posted in {ctx.channel.mention}.")
             
 
                 
