@@ -7,7 +7,6 @@ from discord.ext import commands, tasks
 from itertools import cycle
 
 from birthday.controller import BirthdayTools
-from cogs.birthday import Birthday
 
 class listener(commands.Cog):
 
@@ -63,7 +62,12 @@ class listener(commands.Cog):
     
     @tasks.loop(hours=24)
     async def birthday_check(self):
-            await Birthday.check(self)
+        check, gild = await BirthdayTools.check()
+        if check:
+            for uid in gild.keys():
+                channel = self.client.get_channel(BirthdayTools.get_birthday_channel(gild[uid]))
+                if channel is not None:
+                    await channel.send(f"Happy Birthday <@{uid}>")
 
 status = cycle(['bot stuff', 'Runescape', 'Minecraft', 'nyan cat'])
 

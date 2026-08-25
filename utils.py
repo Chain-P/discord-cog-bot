@@ -2,7 +2,7 @@ import random
 import os
 import json
 
-from settings import DATA_DIR, MODERATOR_ROLE_NAME
+from settings import DATA_DIR, DEFAULT_PREFIX
 from discord.ext import commands
 
 
@@ -29,11 +29,27 @@ async def get_momma_jokes():
     return insult
 
 #Function to check if command invoker is a mod or the owner
-#TODO: Get working
 def mods_or_owner():
-    def predicate(ctx):
-        return commands.check_any(commands.is_owner(), commands.has_permission(admin=True))
+    async def predicate(ctx):
+        if await ctx.bot.is_owner(ctx.author):
+            return True
+        if ctx.guild is None:
+            return False
+        if ctx.author.guild_permissions.administrator:
+            return True
+        mod_role_id = get_moderator_role(ctx.guild.id)
+        if mod_role_id is None:
+            return False
+        return any(role.id == mod_role_id for role in ctx.author.roles)
     return commands.check(predicate)
+
+#Per-guild moderator role, set via the setmodrole admin command
+def get_moderator_role(gid):
+    roles = read_json(DATA_DIR, 'mod_roles.json')
+    return roles.get(str(gid))
+
+def set_moderator_role(gid, role_id):
+    update_json({str(gid): role_id}, DATA_DIR, 'mod_roles.json')
 
 
 #OWO command backbone
@@ -62,11 +78,12 @@ def text_to_owo(text):
 
     return text
 
-def get_prefix(message):
-    with open(os.path.join(DATA_DIR, 'prefix.json')) as f:
-        prefixes = json.load(f)
+def get_prefix(bot, message):
+    if message.guild is None:
+        return DEFAULT_PREFIX
 
-    return prefixes[str(message.guild.id)]
+    prefixes = read_json(DATA_DIR, 'prefix.json')
+    return prefixes.get(str(message.guild.id), DEFAULT_PREFIX)
 
 def read_json(dir, file):
     #Opens file to data

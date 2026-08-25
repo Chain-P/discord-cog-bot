@@ -3,6 +3,7 @@ import discord
 
 from discord.ext.commands import Bot
 from settings import DISCORD_BOT_TOKEN, COGS_DIR, DEV_GUILD_ID
+from utils import get_prefix
 
 
 intents = discord.Intents.default()
@@ -23,6 +24,6 @@ class ZeroBot(Bot):
             await self.tree.sync()
 
 
-client = ZeroBot(command_prefix='.', intents=intents)
+client = ZeroBot(command_prefix=get_prefix, intents=intents)
 
 client.run(DISCORD_BOT_TOKEN)

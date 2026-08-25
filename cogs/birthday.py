@@ -24,11 +24,12 @@ class Birthday(commands.Cog):
     @birthday.command(name='check')
     @mods_or_owner()
     async def check(self, ctx):
-        check, gild= await BirthdayTools.check(self)
+        check, gild = await BirthdayTools.check()
         if check:
             for uid in gild.keys():
-                channel = self.client.get_channel(BirthdayTools.get_birthday_channel(self, gild[uid]))
-                await channel.send(f"Happy Birthday <@{uid}>")
+                channel = self.client.get_channel(BirthdayTools.get_birthday_channel(gild[uid]))
+                if channel is not None:
+                    await channel.send(f"Happy Birthday <@{uid}>")
 
     @birthday.command(name='remove')
     @mods_or_owner()
@@ -39,7 +40,7 @@ class Birthday(commands.Cog):
     @birthday.command()
     @mods_or_owner()
     async def set_channel(self, ctx):
-        BirthdayTools.set_birthday_channel(self, ctx.guild.id, ctx.channel.id)
+        BirthdayTools.set_birthday_channel(ctx.guild.id, ctx.channel.id)
             
 
                 

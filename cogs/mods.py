@@ -26,8 +26,7 @@ class mods(commands.Cog):
             await ctx.send("Please specify a username to unban")
             return
 
-        bans = await ctx.guild.bans()
-        for b in bans:
+        async for b in ctx.guild.bans():
             if b.user.name == member:
                 await ctx.guild.unban(b.user, reason=reason)
                 await ctx.send(f"{member} was unbanned")
@@ -39,7 +38,7 @@ class mods(commands.Cog):
     @commands.hybrid_command(brief='Ban a user via mention')
     @commands.guild_only()
     @commands.check_any(commands.has_permissions(ban_members=True), mods_or_owner())
-    async def ban(self, ctx, member: discord.Member = None, reason=str("You have been baned. Enjoy your time out.")):
+    async def ban(self, ctx, member: discord.Member = None, reason=str("You have been banned. Enjoy your time out.")):
         if member is not None:
             await notify_user(member, reason)
             await ctx.guild.ban(member, reason=reason)

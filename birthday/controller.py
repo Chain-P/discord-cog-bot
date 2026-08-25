@@ -6,8 +6,9 @@ from settings import DATA_DIR
 from datetime import datetime
 
 class BirthdayTools:
-    
-    async def save(self, gid, pid, birthday: str):
+
+    @staticmethod
+    async def save(gid, pid, birthday: str):
         dic = {f'{pid}':f'{birthday}'}
         data = read_json(DATA_DIR, 'servers_birthdays.json')
         for key in data.keys():
@@ -18,7 +19,8 @@ class BirthdayTools:
 
         update_json(data, DATA_DIR, 'servers_birthdays.json')
 
-    async def check(self):
+    @staticmethod
+    async def check():
         check = False
         gild = {}
         current_time = datetime.now()
@@ -29,18 +31,20 @@ class BirthdayTools:
                 if date[:-5] == current_time.strftime('%m/%d'):
                     check = True
                     gild[f'{uid}'] = f'{gid}'
-            
+
         return check, gild
-    
-    def get_birthday_channel(self, gid):
+
+    @staticmethod
+    def get_birthday_channel(gid):
         data = read_json(DATA_DIR, 'servers_birthdays.json')
         for guild in data['channels']:
             if gid == guild:
                 return int(data['channels'][guild])
-    
-    def set_birthday_channel(self, gid, cid):
+
+    @staticmethod
+    def set_birthday_channel(gid, cid):
         data = read_json(DATA_DIR, 'servers_birthdays.json')
-        
+
         dic = {f'{gid}':f'{cid}'}
         data['channels'].update(dic)
         print(f"Changed {gid}'s bday channel to {cid}")

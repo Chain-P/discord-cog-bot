@@ -1,11 +1,10 @@
 import discord
 import os
 import datetime
-import json
 
 from settings import COGS_DIR, DATA_DIR
 from discord.ext import commands
-from utils import mods_or_owner
+from utils import mods_or_owner, update_json, set_moderator_role
 
 
 
@@ -18,7 +17,7 @@ class admin(commands.Cog):
     @commands.is_owner()
     async def load(self, ctx, extension):
         try:
-            self.client.load_extension(f'cogs.{extension}')
+            await self.client.load_extension(f'cogs.{extension}')
         except Exception as e:
             await ctx.send(f"Could not load {extension}")
         await ctx.send(f"Loading {extension}")
@@ -27,7 +26,7 @@ class admin(commands.Cog):
     @mods_or_owner()
     async def unload(self, ctx, extension):
         try:
-            self.client.unload_extension(f'cogs.{extension}')
+            await self.client.unload_extension(f'cogs.{extension}')
         except Exception as e:
             await ctx.send(f"Could not unload {extension}")
         await ctx.send(f"Unloading {extension}")
@@ -38,9 +37,9 @@ class admin(commands.Cog):
         for ext in os.listdir(COGS_DIR):
             if ext.endswith(".py") and ext != '__init__.py':
                 await ctx.send(f"Unloading {ext}")
-                self.client.unload_extension(f'cogs.{ext[:-3]}')
-                await ctx.send(f"Loading {ext}")  
-                self.client.load_extension(f'cogs.{ext[:-3]}')
+                await self.client.unload_extension(f'cogs.{ext[:-3]}')
+                await ctx.send(f"Loading {ext}")
+                await self.client.load_extension(f'cogs.{ext[:-3]}')
 
     @commands.command(brief='Shows discord server status')
     @commands.is_owner()
@@ -79,16 +78,19 @@ class admin(commands.Cog):
         await ctx.send(f'Removed role: {role} from {user.mention}')
 
     @commands.command()
+    @commands.guild_only()
     @mods_or_owner()
     async def changeprefix(self, ctx, prefix):
-        with open(DATA_DIR, 'prefix.json') as f:
-            prefixes = json.load(f)
+        update_json({str(ctx.guild.id): prefix}, DATA_DIR, 'prefix.json')
+        await ctx.send(f"Prefix changed to `{prefix}`")
 
-        prefixes[str(ctx.guild.id)] = prefix
+    @commands.hybrid_command(brief="Sets the moderator role for this server")
+    @commands.guild_only()
+    @commands.has_permissions(administrator=True)
+    async def setmodrole(self, ctx, role: discord.Role):
+        set_moderator_role(ctx.guild.id, role.id)
+        await ctx.send(f"Moderator role set to {role.mention}")
 
-        with open(DATA_DIR, 'prefix.json', 'w') as f:
-            json.dump(prefixes, f)
 
-                        
 async def setup(client):
     await client.add_cog(admin(client))
