@@ -9,7 +9,7 @@ class commands(commands.Cog):
     def __init__(self, client):
         self.client = client
             
-    @commands.command()
+    @commands.hybrid_command()
     async def poke(self, ctx, member: discord.Member = None):
         if member is not None:
             message = f"{ctx.author.name} poked you!!!!"
@@ -17,26 +17,26 @@ class commands(commands.Cog):
         else:
             ctx.send("Please use @mention to poke someone.")
 
-    @commands.command(brief="Says hello")
+    @commands.hybrid_command(brief="Says hello")
     async def hello(self, ctx):
         async with ctx.typing():
             await ctx.send(f'Hello! {ctx.author.mention}')
 
-    @commands.command(brief="A simple coin flip. Heads or Tails?")
+    @commands.hybrid_command(brief="A simple coin flip. Heads or Tails?")
     async def flip(self, ctx):
         n = random.randint(0, 1)
         await ctx.send("Heads" if n ==1 else "Tails")
         print('Flipped')
 
-    @commands.command(brief="Owo's your message")
-    async def owo(self, ctx):
-        await ctx.send(text_to_owo(ctx.message.content))
+    @commands.hybrid_command(brief="Owo's your message")
+    async def owo(self, ctx, *, text: str):
+        await ctx.send(text_to_owo(text))
 
-    @commands.command(brief="Dm's you")
+    @commands.hybrid_command(brief="Dm's you")
     async def dm(self, ctx):
         await ctx.author.send("Depression")
 
-    @commands.command(brief="Insults the mentioned user")
+    @commands.hybrid_command(brief="Insults the mentioned user")
     async def insult(self, ctx, member: discord.Member = None):
         if member != None:
             insult = await get_momma_jokes()
@@ -45,7 +45,7 @@ class commands(commands.Cog):
             insult = await get_momma_jokes()
             await ctx.send(insult)
 
-    @commands.command(brief="Someone feeling butthurt?")
+    @commands.hybrid_command(brief="Someone feeling butthurt?")
     async def cry(self, ctx, user: discord.Member = None):
         apology = await get_apologies()
         if user != None:
@@ -53,8 +53,8 @@ class commands(commands.Cog):
         else:
             await ctx.send(apology)
 
-def setup(client):
-    client.add_cog(commands(client))
+async def setup(client):
+    await client.add_cog(commands(client))
     
     
     

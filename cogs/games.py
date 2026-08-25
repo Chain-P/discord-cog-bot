@@ -1,8 +1,8 @@
 import discord
+import typing
 
 from discord.ext import commands
 from rps.model import RPS
-from rps.parser import RockPaperScissorParser
 from rps.controller import RPSGame
 
 from hangman.controller import HangmanGame
@@ -17,8 +17,8 @@ class Games(commands.Cog):
     def __init__(self, client):
         self.client = client
 
-    @commands.command(usage= "rock | paper | scissor")
-    async def rps(self, ctx, user_choice: RockPaperScissorParser = RockPaperScissorParser(RPS.ROCK)):
+    @commands.hybrid_command(usage= "rock | paper | scissor")
+    async def rps(self, ctx, user_choice: typing.Literal["rock", "paper", "scissor"] = RPS.ROCK):
         """
         Play a game of Rock Paper Scissors
 
@@ -26,10 +26,9 @@ class Games(commands.Cog):
 
         You cannot challenge another user. It's vs the bot only!
         """
-        
+
         game_instance = RPSGame()
-        
-        user_choice = user_choice.choice
+
         won, bot_choice = game_instance.run(user_choice)
         
         if won is None:
@@ -42,7 +41,7 @@ class Games(commands.Cog):
 
         await ctx.send(message)
 
-    @commands.command()
+    @commands.hybrid_command()
     async def hm(self, ctx, guess: str):
         player_id = ctx.author.id
         hangman_instance = HangmanGame()
@@ -98,5 +97,5 @@ class Games(commands.Cog):
         elif result is False and hint != "":
             await ctx.send(f"{ctx.author.mention} you are very close!")
 
-def setup(client):
-    client.add_cog(Games(client))
+async def setup(client):
+    await client.add_cog(Games(client))

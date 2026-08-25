@@ -60,19 +60,19 @@ class admin(commands.Cog):
         
         await ctx.send(embed=embed)
 
-    @commands.command(brief='Generates a server invite')
+    @commands.hybrid_command(brief='Generates a server invite')
     @mods_or_owner()
     async def invite(self, ctx):
         link = await ctx.channel.create_invite(max_age=1)
         await ctx.send(link)
 
-    @commands.command(brief="Gives role to user")
+    @commands.hybrid_command(brief="Gives role to user")
     @mods_or_owner()
     async def addrole(self, ctx, role: discord.Role, user: discord.Member):
         await user.add_roles(role)
         await ctx.send(f'Added role: {role} to {user.mention}')
 
-    @commands.command(name='rr', brief="Takes role from user")
+    @commands.hybrid_command(name='rr', brief="Takes role from user")
     @mods_or_owner()
     async def removerole(self, ctx, role: discord.Role, user: discord.Member):
         await user.remove_roles(role)
@@ -90,5 +90,5 @@ class admin(commands.Cog):
             json.dump(prefixes, f)
 
                         
-def setup(client):
-    client.add_cog(admin(client))
+async def setup(client):
+    await client.add_cog(admin(client))

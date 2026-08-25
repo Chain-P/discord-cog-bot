@@ -9,9 +9,9 @@ class Birthday(commands.Cog):
     def __init__(self, client):
         self.client = client
 
-    @commands.group()
+    @commands.hybrid_group()
     async def birthday(self, ctx):
-        
+
         pass
 
     @birthday.command(name='add')
@@ -20,16 +20,16 @@ class Birthday(commands.Cog):
         pid = str(ctx.author.id)
         gid = str(ctx.guild.id)
         await BirthdayTools.save(gid, pid, bday)
-        
+
     @birthday.command(name='check')
     @mods_or_owner()
-    async def check(self):
+    async def check(self, ctx):
         check, gild= await BirthdayTools.check(self)
         if check:
             for uid in gild.keys():
                 channel = self.client.get_channel(BirthdayTools.get_birthday_channel(self, gild[uid]))
                 await channel.send(f"Happy Birthday <@{uid}>")
-        
+
     @birthday.command(name='remove')
     @mods_or_owner()
     async def remove(self, ctx, member: discord.Member):
@@ -44,5 +44,5 @@ class Birthday(commands.Cog):
 
                 
 
-def setup(client):
-    client.add_cog(Birthday(client))
+async def setup(client):
+    await client.add_cog(Birthday(client))

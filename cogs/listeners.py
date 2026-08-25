@@ -67,5 +67,5 @@ class listener(commands.Cog):
 
 status = cycle(['bot stuff', 'Runescape', 'Minecraft', 'nyan cat'])
 
-def setup(client):
-    client.add_cog(listener(client))
+async def setup(client):
+    await client.add_cog(listener(client))
