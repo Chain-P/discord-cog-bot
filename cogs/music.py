@@ -1,7 +1,14 @@
 import discord
 from discord.ext import commands
 
-from music.controller import MusicPlayer, extract_song, has_human_members
+from music.controller import (
+    MusicPlayer,
+    extract_song,
+    has_human_members,
+    is_real_playlist,
+    playlist_songs,
+    probe,
+)
 
 
 class Music(commands.Cog):
@@ -65,6 +72,26 @@ class Music(commands.Cog):
             await player.voice_client.move_to(channel)
 
         async with ctx.typing():
+            try:
+                info = await probe(query, self.client.loop)
+            except Exception as e:
+                await ctx.send(f"Couldn't find or play that: {e}")
+                return
+
+            if is_real_playlist(info):
+                songs = playlist_songs(info, ctx.author)
+                if not songs:
+                    await ctx.send("That playlist doesn't have any playable entries.")
+                    return
+                was_idle = not player.is_playing
+                for song in songs:
+                    player.add(song)
+                title = info.get('title', 'playlist')
+                await ctx.send(f"Queued {len(songs)} songs from playlist: **{title}**")
+                if was_idle:
+                    player.play_next(self.client.loop)
+                return
+
             try:
                 song = await extract_song(query, ctx.author, self.client.loop)
             except Exception as e:
@@ -151,8 +178,13 @@ class Music(commands.Cog):
         lines = []
         if player.current is not None:
             lines.append(f"**Now playing:** {player.current.title} (requested by {player.current.requester_name})")
-        for i, song in enumerate(player.queue, start=1):
+
+        shown = list(player.queue)[:20]
+        for i, song in enumerate(shown, start=1):
             lines.append(f"{i}. {song.title} (requested by {song.requester_name})")
+        remaining = len(player.queue) - len(shown)
+        if remaining > 0:
+            lines.append(f"...and {remaining} more")
 
         await ctx.send("\n".join(lines))
 
