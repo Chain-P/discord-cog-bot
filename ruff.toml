@@ -1,0 +1,8 @@
+target-version = "py39"
+
+[lint]
+# Correctness-only: syntax errors and pyflakes (undefined names, unused
+# imports/vars, etc). Ruff's full default set includes style/modernization
+# rules (import sorting, f-string preference, ...) that would flag a lot of
+# pre-existing, harmless style choices and drown out real bugs.
+select = ["E9", "F"]
