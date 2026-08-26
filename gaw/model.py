@@ -4,7 +4,7 @@ class GuessAWord:
     channel_id = ""
     channel_name = ""
 
-    def __init__(self):
+    def __init__(self, word="", category=""):
         self.word = word
         self.category = category
 
