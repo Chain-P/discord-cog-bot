@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 
 from music.controller import (
+    MAX_PLAYLIST_SONGS,
     MusicPlayer,
     extract_song,
     has_human_members,
@@ -87,7 +88,14 @@ class Music(commands.Cog):
                 for song in songs:
                     player.add(song)
                 title = info.get('title', 'playlist')
-                await ctx.send(f"Queued {len(songs)} songs from playlist: **{title}**")
+                total = len(info.get('entries', []))
+                if total > len(songs):
+                    await ctx.send(
+                        f"Queued {len(songs)} of {total} songs from playlist: **{title}** "
+                        f"(capped at {MAX_PLAYLIST_SONGS})"
+                    )
+                else:
+                    await ctx.send(f"Queued {len(songs)} songs from playlist: **{title}**")
                 if was_idle:
                     player.play_next(self.client.loop)
                 return
