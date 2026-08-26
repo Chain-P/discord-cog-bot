@@ -26,6 +26,7 @@ FFMPEG_BEFORE_OPTIONS = '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max
 IDLE_TIMEOUT_SECONDS = 300
 EMPTY_CHANNEL_TIMEOUT_SECONDS = 15
 MAX_PLAYLIST_SONGS = 100
+RECONNECT_DELAY_SECONDS = 3
 
 # Fast, metadata-only listing -- used first to find out whether a query is a
 # real playlist or a single video/search, without paying the cost of
@@ -158,13 +159,23 @@ class MusicPlayer:
         self._empty_channel_task = bot_loop.create_task(_disconnect_if_still_empty())
 
     async def _attempt_reconnect(self, channel, bot_loop: asyncio.AbstractEventLoop):
+        # Reconnecting immediately races Discord's gateway still tearing down
+        # the old session (the just-finished disconnect sends its own "leave"
+        # state change) -- observed live as a ~30s hang ending in a timeout
+        # instead of a normal connect. A short delay lets that settle first.
+        await asyncio.sleep(RECONNECT_DELAY_SECONDS)
+
         try:
             self.voice_client = await channel.connect()
         except Exception as e:
+            print(f"Reconnect to voice failed: {e!r}")
             if self.last_text_channel is not None:
-                await self.last_text_channel.send(
-                    f"Lost connection to voice and couldn't reconnect: {e}"
-                )
+                try:
+                    await self.last_text_channel.send(
+                        f"Lost connection to voice and couldn't reconnect: {e}"
+                    )
+                except Exception as send_error:
+                    print(f"Also failed to report the reconnect failure: {send_error!r}")
             return
         await self._play_next_async(bot_loop)
 
