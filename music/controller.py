@@ -105,6 +105,10 @@ class MusicPlayer:
         self.voice_client: discord.VoiceClient | None = None
         self.current: Song | None = None
         self.loop_current = False
+        self.loop_queue = False
+        # Songs that have already played, kept only while loop_queue is on so
+        # a finished queue can be reshuffled and replayed from the top.
+        self.history: deque[Song] = deque()
         self._idle_task: asyncio.Task | None = None
         self._empty_channel_task: asyncio.Task | None = None
         # Text channel of whatever command last connected/played, so an
@@ -210,12 +214,24 @@ class MusicPlayer:
         while True:
             if self.loop_current and self.current is not None:
                 song = self.current
-            elif self.queue:
-                song = self.queue.popleft()
             else:
-                self.current = None
-                self._start_idle_timer(bot_loop)
-                return
+                if self.loop_queue and self.current is not None:
+                    self.history.append(self.current)
+
+                if self.queue:
+                    song = self.queue.popleft()
+                elif self.loop_queue and self.history:
+                    # The whole queue just finished -- reshuffle everything
+                    # that's played so far and go again from the top.
+                    refill = list(self.history)
+                    random.shuffle(refill)
+                    self.queue = deque(refill)
+                    self.history.clear()
+                    song = self.queue.popleft()
+                else:
+                    self.current = None
+                    self._start_idle_timer(bot_loop)
+                    return
 
             if song.stream_url is not None:
                 break

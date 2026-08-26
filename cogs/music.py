@@ -53,6 +53,8 @@ class Music(commands.Cog):
         vc, player.voice_client = player.voice_client, None
         await vc.disconnect()
         player.queue.clear()
+        player.history.clear()
+        player.loop_queue = False
         player.current = None
         await ctx.send("Left the voice channel.")
 
@@ -148,7 +150,9 @@ class Music(commands.Cog):
     async def stop(self, ctx):
         player = self.get_player(ctx.guild.id)
         player.queue.clear()
+        player.history.clear()
         player.loop_current = False
+        player.loop_queue = False
         player._cancel_idle_timer()
         player._cancel_empty_channel_timer()
         vc, player.voice_client = player.voice_client, None
@@ -194,6 +198,9 @@ class Music(commands.Cog):
         if remaining > 0:
             lines.append(f"...and {remaining} more")
 
+        if player.loop_queue:
+            lines.append("🔁 Queue loop is on -- it'll reshuffle and replay once this runs out.")
+
         await ctx.send("\n".join(lines))
 
     @commands.hybrid_command(name='nowplaying', aliases=['np'], brief="Shows the current song")
@@ -231,6 +238,15 @@ class Music(commands.Cog):
         player = self.get_player(ctx.guild.id)
         player.loop_current = not player.loop_current
         await ctx.send(f"Loop {'enabled' if player.loop_current else 'disabled'}.")
+
+    @commands.hybrid_command(brief="Toggles looping the whole queue (reshuffled each time it loops)")
+    @commands.guild_only()
+    async def loopqueue(self, ctx):
+        player = self.get_player(ctx.guild.id)
+        player.loop_queue = not player.loop_queue
+        if not player.loop_queue:
+            player.history.clear()
+        await ctx.send(f"Queue loop {'enabled -- it will reshuffle each time it loops' if player.loop_queue else 'disabled'}.")
 
 
 async def setup(client):
