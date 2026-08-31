@@ -62,7 +62,7 @@ class Games(commands.Cog):
             await ctx.send(f"Guess so for: {hangman_instance.get_guess_string()}")
 
     #TODO: Finish GAW game
-    @commands.group()
+    @commands.group(hidden=True)
     async def gaw(self, ctx):
         #In Development
         ctx.gaw_game = GuessAWordGame()

@@ -32,6 +32,7 @@ class ZeroBot(Bot):
             await self.tree.sync()
 
 
-client = ZeroBot(command_prefix=get_prefix, intents=intents)
+# help_command=None frees up the "help" name for cogs/commands.py's hybrid /help
+client = ZeroBot(command_prefix=get_prefix, intents=intents, help_command=None)
 
 client.run(DISCORD_BOT_TOKEN)
