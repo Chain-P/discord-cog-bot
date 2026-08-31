@@ -17,7 +17,7 @@ class Games(commands.Cog):
     def __init__(self, client):
         self.client = client
 
-    @commands.hybrid_command(usage= "rock | paper | scissor")
+    @commands.hybrid_command(usage="rock | paper | scissor", brief="Play Rock Paper Scissors against the bot")
     async def rps(self, ctx, user_choice: typing.Literal["rock", "paper", "scissor"] = RPS.ROCK):
         """
         Play a game of Rock Paper Scissors
@@ -41,7 +41,7 @@ class Games(commands.Cog):
 
         await ctx.send(message)
 
-    @commands.hybrid_command()
+    @commands.hybrid_command(brief="Play Hangman - guess a letter of the secret word")
     async def hm(self, ctx, guess: str):
         player_id = ctx.author.id
         hangman_instance = HangmanGame()
