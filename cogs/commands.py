@@ -3,7 +3,7 @@ import random
 
 from utils import text_to_owo, notify_user, get_momma_jokes, get_apologies
 from discord.ext import commands
-from discord.ext.commands import Group
+from discord.ext.commands import Group, CommandError
 
 class commands(commands.Cog):
 
@@ -59,28 +59,36 @@ class commands(commands.Cog):
     async def help_command(self, ctx, command: str = None):
         prefix = ctx.prefix or '/'
 
+        async def visible(cmd):
+            if cmd.hidden:
+                return False
+            try:
+                return await cmd.can_run(ctx)
+            except CommandError:
+                return False
+
         if command:
             cmd = self.client.get_command(command)
-            if cmd is None or cmd.hidden:
+            if cmd is None or not await visible(cmd):
                 await ctx.send(f"No command called `{command}` found.")
                 return
             embed = discord.Embed(title=cmd.qualified_name, description=cmd.brief or "No description available.")
             if isinstance(cmd, Group):
-                subcommands = ", ".join(sub.name for sub in cmd.commands if not sub.hidden)
+                subcommands = [sub.name for sub in cmd.commands if await visible(sub)]
                 if subcommands:
-                    embed.add_field(name="Subcommands", value=subcommands, inline=False)
+                    embed.add_field(name="Subcommands", value=", ".join(subcommands), inline=False)
             await ctx.send(embed=embed)
             return
 
         embed = discord.Embed(
             title="Zero-Bot Commands",
-            description=f"Use `{prefix}help <command>` for details on a specific command.",
+            description=f"Use `{prefix}help <command>` for details on a specific command. "
+                        f"Only commands you have permission to use here are shown.",
         )
         by_cog = {}
         for cmd in self.client.commands:
-            if cmd.hidden:
-                continue
-            by_cog.setdefault(cmd.cog_name or "Other", []).append(cmd)
+            if await visible(cmd):
+                by_cog.setdefault(cmd.cog_name or "Other", []).append(cmd)
 
         for cog_name in sorted(by_cog):
             lines = []
@@ -88,9 +96,12 @@ class commands(commands.Cog):
                 lines.append(f"**{cmd.name}** — {cmd.brief or 'No description'}")
                 if isinstance(cmd, Group):
                     for sub in sorted(cmd.commands, key=lambda c: c.name):
-                        if not sub.hidden:
+                        if await visible(sub):
                             lines.append(f"　**{cmd.name} {sub.name}** — {sub.brief or 'No description'}")
             embed.add_field(name=cog_name, value="\n".join(lines)[:1024], inline=False)
+
+        if not by_cog:
+            embed.description += "\n\nNo commands available to you here."
 
         await ctx.send(embed=embed)
 
