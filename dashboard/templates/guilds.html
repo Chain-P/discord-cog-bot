@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+  <header>
+    <h1>Your servers</h1>
+    <span>{{ username }} &middot; <a href="{{ url_for('logout') }}">Log out</a></span>
+  </header>
+
+  {% if guilds %}
+    <div class="card">
+      {% for guild in guilds %}
+        <a href="{{ url_for('guild_settings', gid=guild.id) }}">{{ guild.name }}</a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p>No servers found where you're an admin and Zero-Bot is present.</p>
+  {% endif %}
+{% endblock %}

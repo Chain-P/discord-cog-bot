@@ -2,3 +2,5 @@ discord.py[voice]>=2.7,<3.0
 python-dotenv
 yt-dlp>=2024.1.1
 SQLAlchemy>=2.0
+Flask>=3.0
+requests>=2.31

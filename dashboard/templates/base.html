@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Zero-Bot Dashboard</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 3rem auto; padding: 0 1rem; color: #222; }
+    a { color: #5865F2; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 1.5rem; margin-bottom: 1rem; }
+    .card a { display: block; padding: 0.5rem 0; text-decoration: none; font-weight: 600; }
+    label { display: block; margin-top: 1rem; font-weight: 600; }
+    input, select { width: 100%; padding: 0.5rem; margin-top: 0.25rem; box-sizing: border-box; }
+    button { margin-top: 1.5rem; padding: 0.6rem 1.2rem; background: #5865F2; color: white; border: none; border-radius: 6px; cursor: pointer; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+  </style>
+</head>
+<body>
+  {% block content %}{% endblock %}
+</body>
+</html>

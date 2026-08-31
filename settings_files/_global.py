@@ -16,3 +16,10 @@ DEFAULT_PREFIX = '.'
 
 #Dev guild for instant slash-command sync (set in .env.debug); leave unset for global sync
 DEV_GUILD_ID = os.getenv("DEV_GUILD_ID", False)
+
+#Web dashboard (dashboard/app.py) — separate process, Discord OAuth2 login
+DISCORD_CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", False)
+DISCORD_CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", False)
+DASHBOARD_REDIRECT_URI = os.getenv("DASHBOARD_REDIRECT_URI", "http://localhost:8443/callback")
+FLASK_SECRET_KEY = os.getenv("FLASK_SECRET_KEY", False)
+DASHBOARD_PORT = int(os.getenv("DASHBOARD_PORT", "8443"))

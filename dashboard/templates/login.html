@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>Zero-Bot Dashboard</h1>
+  <p>Log in with Discord to manage the servers you administer.</p>
+  <a href="{{ url_for('login') }}"><button>Login with Discord</button></a>
+{% endblock %}
