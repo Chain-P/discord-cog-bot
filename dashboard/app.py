@@ -6,7 +6,6 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT_DIR)
 
 from flask import Flask, session, redirect, request, render_template, abort, url_for
-import requests
 
 from settings import (
     DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET,
@@ -30,9 +29,15 @@ app.config['SESSION_COOKIE_SECURE'] = DASHBOARD_REDIRECT_URI.startswith('https')
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 
-def logged_in_admin_guilds():
-    """Guilds the logged-in user administers AND the bot is actually in."""
-    user_guilds = get_user_guilds(session['access_token'])
+def fetch_admin_guilds(access_token):
+    """Guilds the logged-in user administers AND the bot is actually in.
+
+    Called once at login and cached in the session — NOT on every page load.
+    Discord's /users/@me/guilds endpoint rate-limits aggressively, and a
+    view -> save -> reload cycle re-checking on every request tripped it
+    within a few seconds during testing.
+    """
+    user_guilds = get_user_guilds(access_token)
     bot_guilds = get_bot_guilds(DISCORD_BOT_TOKEN)
     return [
         {'id': g['id'], 'name': bot_guilds[g['id']]}
@@ -43,14 +48,9 @@ def logged_in_admin_guilds():
 
 @app.route('/')
 def index():
-    if 'access_token' not in session:
+    if 'admin_guilds' not in session:
         return render_template('login.html')
-    try:
-        guilds = logged_in_admin_guilds()
-    except requests.HTTPError:
-        session.clear()
-        return redirect(url_for('index'))
-    return render_template('guilds.html', guilds=guilds, username=session.get('username'))
+    return render_template('guilds.html', guilds=session['admin_guilds'], username=session.get('username'))
 
 
 @app.route('/login')
@@ -69,8 +69,9 @@ def callback():
         abort(400, "Missing OAuth code")
 
     token_data = exchange_code(DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DASHBOARD_REDIRECT_URI, code)
-    session['access_token'] = token_data['access_token']
-    session['username'] = get_current_user(session['access_token'])['username']
+    access_token = token_data['access_token']
+    session['username'] = get_current_user(access_token)['username']
+    session['admin_guilds'] = fetch_admin_guilds(access_token)
     return redirect(url_for('index'))
 
 
@@ -81,9 +82,9 @@ def logout():
 
 
 def require_guild_admin(gid):
-    if 'access_token' not in session:
+    if 'admin_guilds' not in session:
         abort(401)
-    admin_guild_ids = {g['id'] for g in logged_in_admin_guilds()}
+    admin_guild_ids = {g['id'] for g in session['admin_guilds']}
     if gid not in admin_guild_ids:
         abort(403)
 
