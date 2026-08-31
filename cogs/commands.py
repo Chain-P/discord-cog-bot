@@ -70,14 +70,14 @@ class commands(commands.Cog):
         if command:
             cmd = self.client.get_command(command)
             if cmd is None or not await visible(cmd):
-                await ctx.send(f"No command called `{command}` found.")
+                await ctx.send(f"No command called `{command}` found.", ephemeral=True)
                 return
             embed = discord.Embed(title=cmd.qualified_name, description=cmd.brief or "No description available.")
             if isinstance(cmd, Group):
                 subcommands = [sub.name for sub in cmd.commands if await visible(sub)]
                 if subcommands:
                     embed.add_field(name="Subcommands", value=", ".join(subcommands), inline=False)
-            await ctx.send(embed=embed)
+            await ctx.send(embed=embed, ephemeral=True)
             return
 
         embed = discord.Embed(
@@ -103,7 +103,7 @@ class commands(commands.Cog):
         if not by_cog:
             embed.description += "\n\nNo commands available to you here."
 
-        await ctx.send(embed=embed)
+        await ctx.send(embed=embed, ephemeral=True)
 
 async def setup(client):
     await client.add_cog(commands(client))
