@@ -1,4 +1,3 @@
-import discord
 import typing
 
 from discord.ext import commands
@@ -6,7 +5,6 @@ from rps.model import RPS
 from rps.controller import RPSGame
 
 from hangman.controller import HangmanGame
-from gaw.controller import GuessAWordGame
 
 hangman_games = {}
 
@@ -60,42 +58,6 @@ class Games(commands.Cog):
         else:
             await ctx.send(f"Progress: {hangman_instance.get_progress_string()}")
             await ctx.send(f"Guess so for: {hangman_instance.get_guess_string()}")
-
-    #TODO: Finish GAW game
-    @commands.group(hidden=True)
-    async def gaw(self, ctx):
-        #In Development
-        ctx.gaw_game = GuessAWordGame()
-
-    @gaw.command(name='start')
-    async def gaw_start(self, ctx, *members: discord.Member):
-        guild = ctx.guild
-        author = ctx.author
-        players = list()
-        for m in members:
-            players.append(m)
-        
-        
-        channel = await ctx.gaw_game.start_game(guild, author, players)
-        if channel is None:
-            await ctx.send("You already have a game. Please close it first")
-        else:
-            game = ctx.gaw_game.fetch_game()
-            await ctx.send("Have fun! Please go to the new game room")
-
-    @gaw.command(name='g')
-    async def gaw_guess(self, ctx,guess: str):
-        #In Development
-        channel_id = ctx.channel.id
-        
-        result, hint = ctx.gaw_game.guess(channel_id, guess)
-
-        if result is None:
-            await ctx.send("You are not allowed to play in this channel!")
-        elif result is True:
-            await ctx.send(f"{ctx.author.mention} you Won!")
-        elif result is False and hint != "":
-            await ctx.send(f"{ctx.author.mention} you are very close!")
 
 async def setup(client):
     await client.add_cog(Games(client))

@@ -9,7 +9,7 @@ import sys
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 COGS_DIR = os.path.join(ROOT_DIR, "cogs")
 
-PACKAGES = ["birthday", "gaw", "hangman", "music", "rps"]
+PACKAGES = ["birthday", "hangman", "music", "rps"]
 
 
 def cog_modules():
