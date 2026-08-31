@@ -14,8 +14,9 @@ class commands(commands.Cog):
         if member is not None:
             message = f"{ctx.author.name} poked you!!!!"
             await notify_user(member, message)
+            await ctx.send(f"Poked {member.mention}!")
         else:
-            ctx.send("Please use @mention to poke someone.")
+            await ctx.send("Please use @mention to poke someone.")
 
     @commands.hybrid_command(brief="Says hello")
     async def hello(self, ctx):
