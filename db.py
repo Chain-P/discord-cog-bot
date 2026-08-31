@@ -1,6 +1,6 @@
 import os
 
-from sqlalchemy import create_engine, Column, String, Date
+from sqlalchemy import create_engine, Column, String, Date, Integer, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from settings import DATABASE_URL
@@ -26,6 +26,26 @@ class Birthday(Base):
     guild_id = Column(String, primary_key=True)
     user_id = Column(String, primary_key=True)
     date = Column(Date, nullable=False)
+
+
+class Playlist(Base):
+    __tablename__ = 'playlists'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    owner_id = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+
+    __table_args__ = (UniqueConstraint('owner_id', 'name', name='uq_playlist_owner_name'),)
+
+
+class PlaylistSong(Base):
+    __tablename__ = 'playlist_songs'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    playlist_id = Column(Integer, ForeignKey('playlists.id'), nullable=False)
+    position = Column(Integer, nullable=False)
+    title = Column(String, nullable=False)
+    webpage_url = Column(String, nullable=False)
 
 
 def init_db():

@@ -10,6 +10,7 @@ from music.controller import (
     playlist_songs,
     probe,
 )
+from music.playlists import save_playlist, load_playlist, list_playlists, delete_playlist
 
 
 class Music(commands.Cog):
@@ -247,6 +248,69 @@ class Music(commands.Cog):
         if not player.loop_queue:
             player.history.clear()
         await ctx.send(f"Queue loop {'enabled -- it will reshuffle each time it loops' if player.loop_queue else 'disabled'}.")
+
+    @commands.hybrid_group(brief="Save and load music playlists")
+    async def playlist(self, ctx):
+        pass
+
+    @playlist.command(name='save', brief="Saves the current queue as a playlist")
+    @commands.guild_only()
+    async def playlist_save(self, ctx, name: str):
+        player = self.get_player(ctx.guild.id)
+        songs = ([player.current] if player.current is not None else []) + list(player.queue)
+        if not songs:
+            await ctx.send("Nothing to save -- the queue is empty.")
+            return
+        save_playlist(ctx.author.id, name, songs)
+        await ctx.send(f"Saved **{name}** ({min(len(songs), MAX_PLAYLIST_SONGS)} song(s)).")
+
+    @playlist.command(name='load', brief="Queues up a saved playlist")
+    @commands.guild_only()
+    async def playlist_load(self, ctx, name: str):
+        if ctx.author.voice is None or ctx.author.voice.channel is None:
+            await ctx.send("You need to be in a voice channel first.")
+            return
+
+        songs = load_playlist(ctx.author.id, name, ctx.author)
+        if songs is None:
+            await ctx.send(f"No playlist called **{name}** found.")
+            return
+        if not songs:
+            await ctx.send(f"**{name}** is empty.")
+            return
+
+        player = self.get_player(ctx.guild.id)
+        channel = ctx.author.voice.channel
+        player.last_text_channel = ctx.channel
+
+        if not player.is_connected:
+            player.voice_client = await channel.connect()
+        elif player.voice_client.channel != channel:
+            await player.voice_client.move_to(channel)
+
+        was_idle = not player.is_playing
+        for song in songs:
+            player.add(song)
+        await ctx.send(f"Queued {len(songs)} song(s) from playlist: **{name}**")
+        if was_idle:
+            player.play_next(self.client.loop)
+
+    @playlist.command(name='list', brief="Lists your saved playlists")
+    async def playlist_list(self, ctx):
+        playlists = list_playlists(ctx.author.id)
+        if not playlists:
+            await ctx.send("You don't have any saved playlists.")
+            return
+        lines = [f"**{name}** — {count} song(s)" for name, count in playlists]
+        await ctx.send("\n".join(lines))
+
+    @playlist.command(name='delete', brief="Deletes a saved playlist")
+    async def playlist_delete(self, ctx, name: str):
+        removed = delete_playlist(ctx.author.id, name)
+        if removed:
+            await ctx.send(f"Deleted playlist **{name}**.")
+        else:
+            await ctx.send(f"No playlist called **{name}** found.")
 
 
 async def setup(client):
