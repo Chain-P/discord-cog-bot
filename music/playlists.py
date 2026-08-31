@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from db import Session, Playlist, PlaylistSong
 from music.controller import MAX_PLAYLIST_SONGS
 from music.model import Song
