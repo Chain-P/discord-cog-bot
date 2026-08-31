@@ -2,9 +2,9 @@ import discord
 import os
 import datetime
 
-from settings import COGS_DIR, DATA_DIR
+from settings import COGS_DIR
 from discord.ext import commands
-from utils import mods_or_owner, update_json, set_moderator_role
+from utils import mods_or_owner, set_prefix, set_moderator_role
 
 
 
@@ -81,7 +81,7 @@ class admin(commands.Cog):
     @commands.guild_only()
     @mods_or_owner()
     async def changeprefix(self, ctx, prefix):
-        update_json({str(ctx.guild.id): prefix}, DATA_DIR, 'prefix.json')
+        set_prefix(ctx.guild.id, prefix)
         await ctx.send(f"Prefix changed to `{prefix}`")
 
     @commands.hybrid_command(brief="Sets the moderator role for this server")

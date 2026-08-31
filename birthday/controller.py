@@ -1,8 +1,7 @@
 import random
 
 from .model import Birthday as bday
-from utils import update_json, read_json, dump_json
-from settings import DATA_DIR
+from db import Session, Birthday, GuildConfig, get_or_create_guild_config
 from datetime import datetime
 
 # Tried in order; the first one that parses wins. Year-less formats default
@@ -43,51 +42,53 @@ class BirthdayTools:
     async def save(gid, pid, birthday: str):
         gid = str(gid)
         pid = str(pid)
-        data = read_json(DATA_DIR, 'servers_birthdays.json')
-        if gid not in data:
-            data[gid] = {}
-        data[gid][pid] = birthday
-        dump_json(data, DATA_DIR, 'servers_birthdays.json')
+        date = datetime.strptime(birthday, '%m/%d/%Y').date()
+        with Session() as session:
+            row = session.get(Birthday, (gid, pid))
+            if row is None:
+                row = Birthday(guild_id=gid, user_id=pid, date=date)
+                session.add(row)
+            else:
+                row.date = date
+            session.commit()
 
     @staticmethod
     def remove(gid, pid) -> bool:
         gid = str(gid)
         pid = str(pid)
-        data = read_json(DATA_DIR, 'servers_birthdays.json')
-        if gid in data and pid in data[gid]:
-            del data[gid][pid]
-            dump_json(data, DATA_DIR, 'servers_birthdays.json')
+        with Session() as session:
+            row = session.get(Birthday, (gid, pid))
+            if row is None:
+                return False
+            session.delete(row)
+            session.commit()
             return True
-        return False
 
     @staticmethod
     async def check():
         check = False
         gild = {}
         current_time = datetime.now()
-        data = read_json(DATA_DIR, 'servers_birthdays.json')
-        for gid in data:
-            for uid in data[gid].keys():
-                date = data[gid][uid]
-                if date[:-5] == current_time.strftime('%m/%d'):
+        with Session() as session:
+            for row in session.query(Birthday).all():
+                if row.date.strftime('%m/%d') == current_time.strftime('%m/%d'):
                     check = True
-                    gild[f'{uid}'] = f'{gid}'
+                    gild[row.user_id] = row.guild_id
 
         return check, gild
 
     @staticmethod
     def get_birthday_channel(gid):
-        data = read_json(DATA_DIR, 'servers_birthdays.json')
-        for guild in data['channels']:
-            if gid == guild:
-                return int(data['channels'][guild])
+        with Session() as session:
+            config = session.get(GuildConfig, str(gid))
+            if config is None or config.birthday_channel_id is None:
+                return None
+            return int(config.birthday_channel_id)
 
     @staticmethod
     def set_birthday_channel(gid, cid):
-        data = read_json(DATA_DIR, 'servers_birthdays.json')
-
-        dic = {f'{gid}':f'{cid}'}
-        data['channels'].update(dic)
+        with Session() as session:
+            config = get_or_create_guild_config(session, gid)
+            config.birthday_channel_id = str(cid)
+            session.commit()
         print(f"Changed {gid}'s bday channel to {cid}")
-
-        update_json(data, DATA_DIR, 'servers_birthdays.json')

@@ -4,6 +4,7 @@ import discord
 from discord.ext.commands import Bot
 from settings import DISCORD_BOT_TOKEN, COGS_DIR, DEV_GUILD_ID
 from utils import get_prefix
+from db import init_db
 
 
 intents = discord.Intents.default()
@@ -12,6 +13,8 @@ intents.message_content = True
 
 class ZeroBot(Bot):
     async def setup_hook(self):
+        init_db()
+
         for filename in os.listdir(COGS_DIR):
             if filename.endswith('.py') and filename != "__init__.py":
                 await self.load_extension(f'cogs.{filename[:-3]}')

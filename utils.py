@@ -5,6 +5,8 @@ import json
 from settings import DATA_DIR, DEFAULT_PREFIX
 from discord.ext import commands
 
+from db import Session, GuildConfig, get_or_create_guild_config
+
 
 
 async def notify_user(member, message):
@@ -45,11 +47,17 @@ def mods_or_owner():
 
 #Per-guild moderator role, set via the setmodrole admin command
 def get_moderator_role(gid):
-    roles = read_json(DATA_DIR, 'mod_roles.json')
-    return roles.get(str(gid))
+    with Session() as session:
+        config = session.get(GuildConfig, str(gid))
+        if config is None or config.mod_role_id is None:
+            return None
+        return int(config.mod_role_id)
 
 def set_moderator_role(gid, role_id):
-    update_json({str(gid): role_id}, DATA_DIR, 'mod_roles.json')
+    with Session() as session:
+        config = get_or_create_guild_config(session, gid)
+        config.mod_role_id = str(role_id)
+        session.commit()
 
 
 #OWO command backbone
@@ -82,8 +90,17 @@ def get_prefix(bot, message):
     if message.guild is None:
         return DEFAULT_PREFIX
 
-    prefixes = read_json(DATA_DIR, 'prefix.json')
-    return prefixes.get(str(message.guild.id), DEFAULT_PREFIX)
+    with Session() as session:
+        config = session.get(GuildConfig, str(message.guild.id))
+        if config is None or config.prefix is None:
+            return DEFAULT_PREFIX
+        return config.prefix
+
+def set_prefix(gid, prefix):
+    with Session() as session:
+        config = get_or_create_guild_config(session, gid)
+        config.prefix = prefix
+        session.commit()
 
 def read_json(dir, file):
     #Opens file to data
@@ -93,32 +110,3 @@ def read_json(dir, file):
         return json.loads(f.read())
     #Returns data
 
-def dump_json(dic, dir, file):
-    #Opens filename to write updated data
-    with open(os.path.join(dir, file), 'w') as f:
-        #Writes data to file
-        json.dump(dic, f)
-
-
-            
-def update_json(dic, dir, file):
-    #Opens file
-    data = read_json(dir, file)
-    
-    #Updates data with new dic entry
-    data.update(dic)
-
-    #Opens filename to write updated data
-    dump_json(data, dir, file)
-"""
-def update_nested_dict(dic, dir, file):
-    data = read_json(dir, file)
-
-    for key in data.keys():
-            if key == gid:
-                data[key].update(dic)
-            else:
-                data = {f'{gid}': dic}
-
-    update_json(data, dir, file)
-    """
