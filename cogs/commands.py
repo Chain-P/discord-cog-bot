@@ -88,7 +88,8 @@ class commands(commands.Cog):
         by_cog = {}
         for cmd in self.client.commands:
             if await visible(cmd):
-                by_cog.setdefault(cmd.cog_name or "Other", []).append(cmd)
+                cog_name = (cmd.cog_name or "Other").capitalize()
+                by_cog.setdefault(cog_name, []).append(cmd)
 
         for cog_name in sorted(by_cog):
             lines = []
