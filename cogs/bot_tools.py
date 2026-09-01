@@ -1,7 +1,4 @@
-import discord
-import os
 
-from settings import COGS_DIR
 from discord.ext import commands
 
 class bot_tools(commands.Cog):

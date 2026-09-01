@@ -1,6 +1,5 @@
 import discord
 
-from settings import DATA_DIR
 from datetime import datetime
 
 from discord.ext import commands, tasks

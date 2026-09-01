@@ -18,7 +18,7 @@ class admin(commands.Cog):
     async def load(self, ctx, extension):
         try:
             await self.client.load_extension(f'cogs.{extension}')
-        except Exception as e:
+        except Exception:
             await ctx.send(f"Could not load {extension}")
         await ctx.send(f"Loading {extension}")
 
@@ -27,7 +27,7 @@ class admin(commands.Cog):
     async def unload(self, ctx, extension):
         try:
             await self.client.unload_extension(f'cogs.{extension}')
-        except Exception as e:
+        except Exception:
             await ctx.send(f"Could not unload {extension}")
         await ctx.send(f"Unloading {extension}")
 

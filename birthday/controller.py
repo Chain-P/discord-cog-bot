@@ -1,6 +1,4 @@
-import random
 
-from .model import Birthday as bday
 from db import Session, Birthday, GuildConfig, get_or_create_guild_config
 from datetime import datetime
 
