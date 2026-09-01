@@ -22,6 +22,11 @@ YTDL_OPTS = {
 }
 
 FFMPEG_BEFORE_OPTIONS = '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
+# Single-pass loudness normalization (EBU R128) so songs mastered at very
+# different volumes don't jump between quiet and loud -- two-pass would be
+# more accurate but requires fully analyzing each song before playback could
+# start. I/LRA/TP are ffmpeg's own documented sane defaults, not tuned here.
+FFMPEG_OPTIONS = '-af loudnorm=I=-16:LRA=11:TP=-1.5'
 
 IDLE_TIMEOUT_SECONDS = 300
 EMPTY_CHANNEL_TIMEOUT_SECONDS = 15
@@ -252,7 +257,7 @@ class MusicPlayer:
 
         self._cancel_idle_timer()
         self.current = song
-        source = discord.FFmpegPCMAudio(song.stream_url, before_options=FFMPEG_BEFORE_OPTIONS)
+        source = discord.FFmpegPCMAudio(song.stream_url, before_options=FFMPEG_BEFORE_OPTIONS, options=FFMPEG_OPTIONS)
 
         def _after(error):
             if error:
