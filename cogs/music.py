@@ -183,7 +183,7 @@ class Music(commands.Cog):
     @commands.guild_only()
     async def queue_(self, ctx):
         player = self.get_player(ctx.guild.id)
-        if player.current is None and not player.queue:
+        if player.current is None and not player.queue and not player.history:
             await ctx.send("The queue is empty.")
             return
 
@@ -198,7 +198,19 @@ class Music(commands.Cog):
         if remaining > 0:
             lines.append(f"...and {remaining} more")
 
-        if player.loop_queue:
+        if player.loop_queue and player.history:
+            # Numbered continuing on from the upcoming list above, since
+            # that's the same combined index space /remove accepts -- this
+            # list isn't play order though, just whatever's queued up to be
+            # reshuffled back in.
+            lines.append("🔁 Already played (will reshuffle back in):")
+            shown_history = list(player.history)[:20]
+            for i, song in enumerate(shown_history, start=len(player.queue) + 1):
+                lines.append(f"{i}. {song.title} (requested by {song.requester_name})")
+            remaining_history = len(player.history) - len(shown_history)
+            if remaining_history > 0:
+                lines.append(f"...and {remaining_history} more")
+        elif player.loop_queue:
             lines.append("🔁 Queue loop is on -- it'll reshuffle and replay once this runs out.")
 
         await ctx.send("\n".join(lines))

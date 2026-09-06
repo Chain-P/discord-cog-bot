@@ -393,6 +393,17 @@ class MusicPlayer:
             song = q.pop(index)
             self.queue = deque(q)
             return song
+
+        # Indices past the upcoming queue reach into the already-played
+        # history that loop_queue keeps around for the next reshuffle --
+        # matches how /queue numbers the two lists as one continuous space.
+        history_index = index - len(self.queue)
+        if 0 <= history_index < len(self.history):
+            h = list(self.history)
+            song = h.pop(history_index)
+            self.history = deque(h)
+            return song
+
         return None
 
     def shuffle(self):
