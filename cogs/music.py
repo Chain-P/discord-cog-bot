@@ -1,6 +1,7 @@
 from discord.ext import commands
 
 from music.controller import (
+    DEFAULT_LOOP_QUEUE,
     MAX_PLAYLIST_SONGS,
     MusicPlayer,
     extract_song,
@@ -54,7 +55,7 @@ class Music(commands.Cog):
         await vc.disconnect()
         player.queue.clear()
         player.history.clear()
-        player.loop_queue = False
+        player.loop_queue = DEFAULT_LOOP_QUEUE
         player.current = None
         await ctx.send("Left the voice channel.")
 
@@ -139,8 +140,7 @@ class Music(commands.Cog):
     @commands.guild_only()
     async def skip(self, ctx):
         player = self.get_player(ctx.guild.id)
-        if player.voice_client is not None and (player.voice_client.is_playing() or player.voice_client.is_paused()):
-            player.voice_client.stop()
+        if player.skip(self.client.loop):
             await ctx.send("Skipped.")
         else:
             await ctx.send("Nothing is playing.")
@@ -152,7 +152,7 @@ class Music(commands.Cog):
         player.queue.clear()
         player.history.clear()
         player.loop_current = False
-        player.loop_queue = False
+        player.loop_queue = DEFAULT_LOOP_QUEUE
         player._cancel_idle_timer()
         player._cancel_empty_channel_timer()
         vc, player.voice_client = player.voice_client, None
@@ -183,7 +183,7 @@ class Music(commands.Cog):
     @commands.guild_only()
     async def queue_(self, ctx):
         player = self.get_player(ctx.guild.id)
-        if player.current is None and not player.queue:
+        if player.current is None and not player.queue and not player.history:
             await ctx.send("The queue is empty.")
             return
 
@@ -198,7 +198,19 @@ class Music(commands.Cog):
         if remaining > 0:
             lines.append(f"...and {remaining} more")
 
-        if player.loop_queue:
+        if player.loop_queue and player.history:
+            # Numbered continuing on from the upcoming list above, since
+            # that's the same combined index space /remove accepts -- this
+            # list isn't play order though, just whatever's queued up to be
+            # reshuffled back in.
+            lines.append("🔁 Already played (will reshuffle back in):")
+            shown_history = list(player.history)[:20]
+            for i, song in enumerate(shown_history, start=len(player.queue) + 1):
+                lines.append(f"{i}. {song.title} (requested by {song.requester_name})")
+            remaining_history = len(player.history) - len(shown_history)
+            if remaining_history > 0:
+                lines.append(f"...and {remaining_history} more")
+        elif player.loop_queue:
             lines.append("🔁 Queue loop is on -- it'll reshuffle and replay once this runs out.")
 
         await ctx.send("\n".join(lines))
@@ -212,10 +224,18 @@ class Music(commands.Cog):
             return
         await ctx.send(f"**Now playing:** {player.current.title} (requested by {player.current.requester_name})")
 
-    @commands.hybrid_command(brief="Removes a song from the queue by position")
+    @commands.hybrid_command(brief="Removes a song from the queue by position, or the current song if no position is given")
     @commands.guild_only()
-    async def remove(self, ctx, index: int):
+    async def remove(self, ctx, index: int = None):
         player = self.get_player(ctx.guild.id)
+        if index is None:
+            song = player.remove_current(self.client.loop)
+            if song is None:
+                await ctx.send("Nothing is playing.")
+            else:
+                await ctx.send(f"Removed: **{song.title}**")
+            return
+
         song = player.remove(index - 1)
         if song is None:
             await ctx.send("No song at that position.")
