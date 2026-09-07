@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import queue
 import random
+import threading
 from collections import deque
 
 import discord
@@ -34,6 +36,15 @@ MAX_PLAYLIST_SONGS = 100
 RECONNECT_DELAY_SECONDS = 3
 DEFAULT_LOOP_QUEUE = True
 MAX_ZERO_FRAME_RETRIES = 1
+# 20ms per Opus frame -- ~1s of pre-roll absorbs ffmpeg's connection/format
+# startup latency before discord.py's playback clock ever starts running, so
+# that latency never shows up as an audible catch-up. Capped wait so a
+# stream that's slow to produce even that much doesn't hang playback.
+PREBUFFER_FRAMES = 50
+PREBUFFER_TIMEOUT_SECONDS = 5
+# Bounds how far the background fill thread can race ahead of playback
+# (~5s), so a long-idle queue doesn't grow this without limit.
+MAX_BUFFERED_FRAMES = 250
 
 # Fast, metadata-only listing -- used first to find out whether a query is a
 # real playlist or a single video/search, without paying the cost of
@@ -127,6 +138,52 @@ class _CountingFFmpegPCMAudio(discord.FFmpegPCMAudio):
         return data
 
 
+class _BufferedFFmpegPCMAudio(discord.AudioSource):
+    # Reads the underlying ffmpeg source ahead on a background thread into a
+    # bounded queue, instead of discord.py's AudioPlayer reading ffmpeg's
+    # pipe directly. This lets callers wait for a bit of pre-roll before
+    # ever starting playback (see wait_prebuffered), so ffmpeg's own
+    # startup latency (opening the connection, picking a fallback format,
+    # loudnorm's lookahead) is absorbed up front instead of causing
+    # discord.py's playback clock to fall behind and audibly catch up.
+    def __init__(self, stream_url: str, before_options: str, options: str):
+        self._inner = _CountingFFmpegPCMAudio(stream_url, before_options=before_options, options=options)
+        self._queue: queue.Queue[bytes | None] = queue.Queue(maxsize=MAX_BUFFERED_FRAMES)
+        self._prebuffered = threading.Event()
+        self._thread = threading.Thread(target=self._fill, daemon=True)
+        self._thread.start()
+
+    def _fill(self):
+        count = 0
+        while True:
+            data = self._inner.read()
+            if not data:
+                self._prebuffered.set()
+                self._queue.put(None)  # sentinel: the stream has actually ended
+                return
+            self._queue.put(data)  # blocks once MAX_BUFFERED_FRAMES is reached
+            count += 1
+            if count >= PREBUFFER_FRAMES:
+                self._prebuffered.set()
+
+    def wait_prebuffered(self):
+        self._prebuffered.wait(PREBUFFER_TIMEOUT_SECONDS)
+
+    @property
+    def frames_read(self) -> int:
+        return self._inner.frames_read
+
+    def read(self) -> bytes:
+        data = self._queue.get()
+        return data or b''
+
+    def is_opus(self) -> bool:
+        return False
+
+    def cleanup(self):
+        self._inner.cleanup()
+
+
 class MusicPlayer:
     def __init__(self, guild_id: int):
         self.guild_id = guild_id
@@ -150,6 +207,12 @@ class MusicPlayer:
         self._force_advance = False
         self._advance_keep_in_rotation = True
         self._pending_retry_task: asyncio.Task | None = None
+        # Bumped by skip()/remove_current() to invalidate a still-prebuffering
+        # _play_song() call for the song being displaced -- without this, a
+        # skip/remove during the pre-roll window (before voice_client.play()
+        # is even called, so is_playing()/is_paused() are both False) could
+        # race with the forced advance and start two overlapping playbacks.
+        self._play_generation = 0
 
     @property
     def is_connected(self) -> bool:
@@ -293,12 +356,24 @@ class MusicPlayer:
             song.title = info.get('title') or song.title
             break
 
-        self._play_song(bot_loop, song)
+        await self._play_song(bot_loop, song)
 
-    def _play_song(self, bot_loop: asyncio.AbstractEventLoop, song: Song, attempt: int = 0):
+    async def _play_song(self, bot_loop: asyncio.AbstractEventLoop, song: Song, attempt: int = 0):
         self._cancel_idle_timer()
         self.current = song
-        source = _CountingFFmpegPCMAudio(song.stream_url, before_options=FFMPEG_BEFORE_OPTIONS, options=FFMPEG_OPTIONS)
+        self._play_generation += 1
+        generation = self._play_generation
+        source = _BufferedFFmpegPCMAudio(song.stream_url, FFMPEG_BEFORE_OPTIONS, FFMPEG_OPTIONS)
+
+        # Give the buffer a head start on the connection/format startup
+        # latency before starting discord.py's playback clock at all.
+        await bot_loop.run_in_executor(None, source.wait_prebuffered)
+
+        if self.voice_client is None or generation != self._play_generation:
+            # Disconnected, or superseded by a skip/remove_current that fired
+            # during the pre-roll wait above.
+            source.cleanup()
+            return
 
         def _after(error):
             bot_loop.call_soon_threadsafe(self._on_playback_done, bot_loop, song, source, attempt, error)
@@ -309,7 +384,7 @@ class MusicPlayer:
         self,
         bot_loop: asyncio.AbstractEventLoop,
         song: Song,
-        source: _CountingFFmpegPCMAudio,
+        source: _BufferedFFmpegPCMAudio,
         attempt: int,
         error,
     ):
@@ -350,21 +425,23 @@ class MusicPlayer:
         song.duration = info.get('duration') or song.duration
         song.title = info.get('title') or song.title
         self._pending_retry_task = None
-        self._play_song(bot_loop, song, attempt=attempt)
+        await self._play_song(bot_loop, song, attempt=attempt)
 
     def skip(self, bot_loop: asyncio.AbstractEventLoop) -> bool:
+        if self.current is None and self._pending_retry_task is None:
+            return False
         if self._pending_retry_task is not None:
             self._pending_retry_task.cancel()
             self._pending_retry_task = None
-            self._force_advance = True
-            self._advance_keep_in_rotation = True
-            self.play_next(bot_loop)
-            return True
-        if self.voice_client is None or not (self.voice_client.is_playing() or self.voice_client.is_paused()):
-            return False
         self._force_advance = True
         self._advance_keep_in_rotation = True
-        self.voice_client.stop()
+        self._play_generation += 1  # invalidate a still-prebuffering attempt, if any
+        if self.voice_client is not None and (self.voice_client.is_playing() or self.voice_client.is_paused()):
+            self.voice_client.stop()
+        else:
+            # Nothing actively playing to interrupt (still prebuffering, or
+            # this was a pending-retry skip) -- advance directly.
+            self.play_next(bot_loop)
         return True
 
     def remove_current(self, bot_loop: asyncio.AbstractEventLoop) -> Song | None:
@@ -373,11 +450,11 @@ class MusicPlayer:
             return None
         self._force_advance = True
         self._advance_keep_in_rotation = False
+        self._play_generation += 1  # invalidate a still-prebuffering attempt, if any
         if self._pending_retry_task is not None:
             self._pending_retry_task.cancel()
             self._pending_retry_task = None
-            self.play_next(bot_loop)
-        elif self.voice_client is not None and (self.voice_client.is_playing() or self.voice_client.is_paused()):
+        if self.voice_client is not None and (self.voice_client.is_playing() or self.voice_client.is_paused()):
             self.voice_client.stop()
         else:
             self.current = None
